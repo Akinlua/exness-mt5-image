@@ -21,6 +21,13 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
     software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
+# ── ▼ Insert all your NGINX config steps here, as root ▼ ───────────────────
+# Copy your default site (or overwrite it), sed in your variables, htpasswd…
+COPY ./nginx/default /etc/nginx/sites-available/default
+RUN sed -i 's|LISTEN_PORT|8001|' /etc/nginx/sites-available/default \
+ && htpasswd -b -c /etc/nginx/.htpasswd myuser mypass \
+ && chmod 640 /etc/nginx/.htpasswd
+
 # Add WineHQ repository key and APT source
 RUN wget -q https://dl.winehq.org/wine-builds/winehq.key \
     && apt-key add winehq.key \
