@@ -267,8 +267,8 @@ if ! is_python_package_installed "mt5linux"; then
     touch requirements.txt
     
     # Install mt5linux and rpyc
-    python3 -m pip install --user .
-    python3 -m pip install --user rpyc
+    python3 -m pip install --user --break-system-packages .
+    python3 -m pip install --user --break-system-packages rpyc
     
     cd -
     rm -rf /tmp/mt5linux
@@ -277,7 +277,7 @@ fi
 # Install pyxdg library in Linux if not installed
 show_message "[6/7] Checking and installing pyxdg library in Linux if necessary"
 if ! is_python_package_installed "pyxdg"; then
-    pip install --user --upgrade pyxdg
+    pip install --user --upgrade --break-system-packages pyxdg
 fi
 
 # Start the MT5 server on Linux
