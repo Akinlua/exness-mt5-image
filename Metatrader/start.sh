@@ -97,13 +97,30 @@ fi
 # Install mt5linux library in Windows if not installed
 show_message "[6/7] Checking and installing mt5linux library in Windows if necessary"
 if ! is_wine_python_package_installed "mt5linux"; then
-    $wine_executable python -m pip install --no-cache-dir --break-system-packages mt5linux
+    show_message "Downloading mt5linux from GitHub for Windows..."
+    curl -L https://github.com/lucas-campagna/mt5linux/archive/refs/heads/master.tar.gz -o /tmp/mt5linux.tar.gz && \
+    mkdir -p /tmp/mt5linux_win && \
+    tar -xzf /tmp/mt5linux.tar.gz -C /tmp/mt5linux_win --strip-components=1 && \
+    cd /tmp/mt5linux_win && \
+    touch requirements.txt && \
+    $wine_executable python -m pip install --no-cache-dir --break-system-packages . && \
+    $wine_executable python -m pip install --no-cache-dir --break-system-packages rpyc && \
+    rm -rf /tmp/mt5linux_win /tmp/mt5linux.tar.gz
 fi
 
 # Install mt5linux library in Linux if not installed
 show_message "[6/7] Checking and installing mt5linux library in Linux if necessary"
 if ! is_python_package_installed "mt5linux"; then
-    pip install --upgrade --no-cache-dir --break-system-packages mt5linux
+    show_message "Downloading mt5linux from GitHub..."
+    curl -L https://github.com/lucas-campagna/mt5linux/archive/refs/heads/master.tar.gz -o /tmp/mt5linux.tar.gz && \
+    mkdir -p /tmp/mt5linux && \
+    tar -xzf /tmp/mt5linux.tar.gz -C /tmp/mt5linux --strip-components=1 && \
+    cd /tmp/mt5linux && \
+    touch requirements.txt && \
+    pip install --no-cache-dir --break-system-packages . && \
+    pip install --upgrade --no-cache-dir --break-system-packages rpyc && \
+    rm -f /tmp/mt5linux.tar.gz
+    # Don't remove the mt5linux directory yet as it might be needed for server startup
 fi
 
 # Install pyxdg library in Linux if not installed
@@ -114,8 +131,16 @@ fi
 
 # Start the MT5 server on Linux
 show_message "[7/7] Starting the mt5linux server..."
-python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable python.exe &
+# python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable python.exe &
 
+# Generate the server file
+python3 -m mt5linux "python.exe" --host "0.0.0.0" -p $mt5server_port -w "/usr/bin/wine" -s "/tmp/my_mt5_server"
+
+# Run the server
+cd /tmp/my_mt5_server
+python3 server.py --host 0.0.0.0 --port $mt5server_port
+
+# python3 -m mt5linux --host 0.0.0.0 -p 8001 -w wine python.exe
 # Give the server some time to start
 sleep 5
 
