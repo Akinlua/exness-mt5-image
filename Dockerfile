@@ -1,4 +1,5 @@
-FROM --platform=linux/amd64 ghcr.io/linuxserver/baseimage-kasmvnc:debianbullseye AS base
+FROM ghcr.io/linuxserver/baseimage-kasmvnc:ubuntunoble-version-bb17071a@sha256:3b192c896ca11b914300f78472cb830ff358a64301399301b1e3c4916dd1490b
+
 # set version label
 ARG BUILD_DATE
 ARG VERSION
