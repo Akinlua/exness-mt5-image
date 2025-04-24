@@ -1,4 +1,4 @@
-FROM ghcr.io/linuxserver/baseimage-kasmvnc:debianbullseye
+FROM lscr.io/linuxserver/kasmvnc:latest
 
 # set version label
 ARG BUILD_DATE
@@ -16,6 +16,7 @@ RUN apt-get update && apt-get upgrade -y
 RUN apt-get install -y \
     python3-pip \
     wget \
+    software-properties-common \
     && pip3 install --upgrade pip
 
 # Add WineHQ repository key and APT source

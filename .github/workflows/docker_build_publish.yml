@@ -29,19 +29,21 @@ jobs:
       #     restore-keys: |
       #       ${{ runner.os }}-buildx-
 
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Set the version
         id: get_version
-        run: echo "VERSION=$(echo ${{ github.ref }} | cut -d '/' -f 3)" >> $GITHUB_ENV
+        run: echo "VERSION=$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
 
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v5
         with:
-          # context: .
-          # file: ./Dockerfile
+          context: .
           platforms: linux/amd64
           push: true
-          tags:  ${{ secrets.DOCKERHUB_USERNAME }}/exness-mt5-vnc:${{ env.VERSION }},${{ secrets.DOCKERHUB_USERNAME }}/exness-mt5-vnc:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/exness-mt5-vnc:${{ env.VERSION }},${{ secrets.DOCKERHUB_USERNAME }}/exness-mt5-vnc:latest
           # cache-from: type=local,src=/tmp/.buildx-cache
           # cache-to: type=local,dest=/tmp/.buildx-cache
 
