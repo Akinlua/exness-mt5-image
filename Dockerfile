@@ -14,6 +14,7 @@ RUN apt-get update && apt-get upgrade -y
 
 # Install required packages
 RUN apt-get install -y \
+    python3 \
     python3-pip \
     wget \
     && pip3 install --upgrade pip
