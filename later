@@ -1,4 +1,4 @@
-FROM ghcr.io/linuxserver/baseimage-kasmvnc:ubuntunoble-version-bb17071a
+FROM ghcr.io/linuxserver/baseimage-kasmvnc:ubuntunoble-version-bb17071a@sha256:3b192c896ca11b914300f78472cb830ff358a64301399301b1e3c4916dd1490b
 
 # set version label
 ARG BUILD_DATE
@@ -14,9 +14,9 @@ RUN apt-get update && apt-get upgrade -y
 
 # Install required packages
 RUN apt-get install -y \
+    python3 \
     python3-pip \
-    wget \
-    && pip3 install --upgrade pip
+    wget 
 
 # Add WineHQ repository key and APT source
 RUN wget -q https://dl.winehq.org/wine-builds/winehq.key \
