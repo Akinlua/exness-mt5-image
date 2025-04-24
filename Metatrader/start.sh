@@ -38,6 +38,14 @@ is_wine_python_package_installed() {
 # Check for necessary dependencies
 check_dependency "curl"
 check_dependency "$wine_executable"
+check_dependency "git"
+
+# Try to fix permission issues
+show_message "Fixing permissions..."
+mkdir -p /config/.cache/openbox/sessions 2>/dev/null || true
+chmod -R 777 /config/.cache 2>/dev/null || true
+mkdir -p /tmp/.X11-unix 2>/dev/null || true
+chmod 1777 /tmp/.X11-unix 2>/dev/null || true
 
 # Install Mono if not present
 if [ ! -e "/config/.wine/drive_c/windows/mono" ]; then
@@ -74,7 +82,6 @@ else
     show_message "[4/7] File $mt5file is not installed. MT5 cannot be run."
 fi
 
-
 # Install Python in Wine if not present
 if ! $wine_executable python --version 2>/dev/null; then
     show_message "[5/7] Installing Python in Wine..."
@@ -97,13 +104,48 @@ fi
 # Install mt5linux library in Windows if not installed
 show_message "[6/7] Checking and installing mt5linux library in Windows if necessary"
 if ! is_wine_python_package_installed "mt5linux"; then
-    $wine_executable python -m pip install --no-cache-dir --break-system-packages mt5linux
+    # Create a temporary script to install mt5linux from GitHub in Windows
+    cat > /tmp/install_mt5linux.py << EOF
+import os
+import shutil
+import subprocess
+import tempfile
+
+# Create temporary directory
+temp_dir = tempfile.mkdtemp()
+os.chdir(temp_dir)
+
+# Clone repo
+subprocess.call(['git', 'clone', 'https://github.com/lucas-campagna/mt5linux.git', temp_dir])
+
+# Create empty requirements.txt
+with open('requirements.txt', 'w') as f:
+    pass
+
+# Install the package and rpyc
+subprocess.call(['pip', 'install', '--break-system-packages', '.'])
+subprocess.call(['pip', 'install', '--break-system-packages', 'rpyc'])
+
+# Clean up
+os.chdir('/')
+shutil.rmtree(temp_dir)
+EOF
+    
+    # Run the script in Wine Python
+    $wine_executable python /tmp/install_mt5linux.py
+    rm /tmp/install_mt5linux.py
 fi
 
-# Install mt5linux library in Linux if not installed
-show_message "[6/7] Checking and installing mt5linux library in Linux if necessary"
+# Install mt5linux from GitHub in Linux if not installed
+show_message "[6/7] Installing mt5linux from GitHub in Linux"
 if ! is_python_package_installed "mt5linux"; then
-    pip install --upgrade --no-cache-dir --break-system-packages mt5linux
+    git clone https://github.com/lucas-campagna/mt5linux.git /tmp/mt5linux
+    cd /tmp/mt5linux
+    touch requirements.txt
+    pip install --break-system-packages .
+    pip install --break-system-packages rpyc
+    cd -
+    rm -rf /tmp/mt5linux
 fi
 
 # Install pyxdg library in Linux if not installed
@@ -125,3 +167,6 @@ if ss -tuln | grep ":$mt5server_port" > /dev/null; then
 else
     show_message "[7/7] Failed to start the mt5linux server on port $mt5server_port."
 fi
+
+# Keep the script running to prevent container exit
+tail -f /dev/null
