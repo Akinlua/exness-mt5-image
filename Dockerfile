@@ -21,17 +21,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y \
     software-properties-common \
     && rm -rf /var/lib/apt/lists/*
 
-# ── ▼ Insert all your NGINX config steps here, as root ▼ ───────────────────
-# Copy your default site (or overwrite it), sed in your variables, htpasswd…
-COPY ./nginx/default /etc/nginx/sites-available/default
-RUN sed -i 's|LISTEN_PORT|8001|' /etc/nginx/sites-available/default \
- && htpasswd -b -c /etc/nginx/.htpasswd myuser mypass \
- && chmod 640 /etc/nginx/.htpasswd
-
 # Add WineHQ repository key and APT source
 RUN wget -q https://dl.winehq.org/wine-builds/winehq.key \
     && apt-key add winehq.key \
-    && add-apt-repository 'deb https://dl.winehq.org/wine-builds/debian/ bullseye main' \
+    && add-apt-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ noble main' \
     && rm winehq.key
 
 # Add i386 architecture and update package lists
@@ -53,6 +46,7 @@ WORKDIR /opt/app
 RUN python3 -m venv .venv \
     && . .venv/bin/activate \
     && pip install --upgrade pip \
+    && pip install mt5linux \
     && deactivate
 
 COPY /Metatrader /Metatrader
@@ -60,11 +54,19 @@ RUN chmod +x /Metatrader/start.sh
 COPY /root /
 COPY --chown=1000:1000 . /opt/app
 
-# Switch to the unprivileged user
-USER 1000
-ENV PATH="/opt/app/.venv/bin:${PATH}"
+# Make sure mt5linux is available in the PATH for all users
+RUN ln -s /opt/app/.venv/bin/mt5linux /usr/local/bin/mt5linux
+
+# Set permissions for config files
+RUN chmod -R 755 /config
+
+# We keep USER as root to allow nginx configuration
+# The base image will handle dropping privileges as needed
 
 EXPOSE 3000 8001
 VOLUME /config
 
-CMD ["mt5linux", "--host", "0.0.0.0", "--port", "8001"]
+# Use a custom entrypoint script
+COPY --chown=root:root entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
