@@ -129,9 +129,28 @@ fi
 # Install Git for Windows in Wine if not present
 if ! is_git_installed_in_wine; then
     show_message "[5/7] Installing Git for Windows in Wine..."
+    # Download Git installer
     curl -L $git_win_url -o /tmp/git-installer.exe
-    $wine_executable /tmp/git-installer.exe /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"
-    rm /tmp/git-installer.exe
+    
+    # Disable Wine debug messages temporarily
+    WINEDEBUG="-all"
+    export WINEDEBUG
+    
+    # Run installer silently
+    $wine_executable /tmp/git-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS
+    
+    # Wait for installation to complete
+    sleep 10
+    
+    # Reset Wine debug messages
+    unset WINEDEBUG
+    
+    # Clean up
+    rm -f /tmp/git-installer.exe
+    
+    # Add Git to the Windows PATH if needed
+    $wine_executable reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v PATH /t REG_EXPAND_SZ /d "%PATH%;C:\\Program Files\\Git\\cmd" /f
+    
     show_message "[5/7] Git for Windows installed in Wine."
 else
     show_message "[5/7] Git for Windows is already installed in Wine."
