@@ -9,6 +9,9 @@ mt5server_port="8001"
 mono_url="https://dl.winehq.org/wine/wine-mono/8.0.0/wine-mono-8.0.0-x86.msi"
 python_url="https://www.python.org/ftp/python/3.9.0/python-3.9.0.exe"
 mt5setup_url="https://download.mql5.com/cdn/web/exness.technologies.ltd/mt5/exness5setup.exe"
+venv_path="/config/venv"
+venv_python="$venv_path/bin/python3"
+venv_pip="$venv_path/bin/pip"
 
 # Function to display a graphical message
 show_message() {
@@ -25,7 +28,7 @@ check_dependency() {
 
 # Function to check if a Python package is installed
 is_python_package_installed() {
-    python3 -c "import pkg_resources; exit(not pkg_resources.require('$1'))" 2>/dev/null
+    $venv_python -c "import pkg_resources; exit(not pkg_resources.require('$1'))" 2>/dev/null
     return $?
 }
 
@@ -38,6 +41,15 @@ is_wine_python_package_installed() {
 # Check for necessary dependencies
 check_dependency "curl"
 check_dependency "$wine_executable"
+check_dependency "python3"
+check_dependency "python3-venv"
+
+# Create virtual environment if it doesn't exist
+if [ ! -d "$venv_path" ]; then
+    show_message "Creating Python virtual environment for Linux..."
+    python3 -m venv $venv_path
+    $venv_pip install --upgrade pip
+fi
 
 # Install Mono if not present
 if [ ! -e "/config/.wine/drive_c/windows/mono" ]; then
@@ -86,35 +98,41 @@ else
     show_message "[5/7] Python is already installed in Wine."
 fi
 
-# Upgrade pip and install required packages
-show_message "[6/7] Installing Python libraries"
+# Upgrade pip and install required packages in Wine
+show_message "[6/7] Installing Python libraries in Wine"
 $wine_executable python -m pip install --upgrade --no-cache-dir pip
+
 # Install MetaTrader5 library in Windows if not installed
 show_message "[6/7] Installing MetaTrader5 library in Windows"
 if ! is_wine_python_package_installed "MetaTrader5==$metatrader_version"; then
     $wine_executable python -m pip install --no-cache-dir MetaTrader5==$metatrader_version
 fi
+
 # Install mt5linux library in Windows if not installed
 show_message "[6/7] Checking and installing mt5linux library in Windows if necessary"
 if ! is_wine_python_package_installed "mt5linux"; then
     $wine_executable python -m pip install --no-cache-dir mt5linux
 fi
 
-# Install mt5linux library in Linux if not installed
-show_message "[6/7] Checking and installing mt5linux library in Linux if necessary"
+# Install mt5linux library in Linux virtual environment if not installed
+show_message "[6/7] Checking and installing mt5linux library in Linux virtual environment if necessary"
 if ! is_python_package_installed "mt5linux"; then
-    pip install --upgrade --no-cache-dir mt5linux
+    $venv_pip install --upgrade --no-cache-dir mt5linux
 fi
 
-# Install pyxdg library in Linux if not installed
-show_message "[6/7] Checking and installing pyxdg library in Linux if necessary"
+# Install pyxdg library in Linux virtual environment if not installed
+show_message "[6/7] Checking and installing pyxdg library in Linux virtual environment if necessary"
 if ! is_python_package_installed "pyxdg"; then
-    pip install --upgrade --no-cache-dir pyxdg
+    $venv_pip install --upgrade --no-cache-dir pyxdg
 fi
 
-# Start the MT5 server on Linux
+# Make sure directory permissions are set correctly
+mkdir -p /config/.cache/openbox/sessions 2>/dev/null
+chmod -R 777 /config/.cache 2>/dev/null
+
+# Start the MT5 server on Linux using virtual environment
 show_message "[7/7] Starting the mt5linux server..."
-python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable python.exe &
+$venv_python -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable python.exe &
 
 # Give the server some time to start
 sleep 5
@@ -125,3 +143,6 @@ if ss -tuln | grep ":$mt5server_port" > /dev/null; then
 else
     show_message "[7/7] Failed to start the mt5linux server on port $mt5server_port."
 fi
+
+# Keep the script running
+tail -f /dev/null
