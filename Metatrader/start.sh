@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration variables
-mt5file='/config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe'
+mt5file='/config/.wine/drive_c/Program Files/MetaTrader 5 EXNESS/terminal64.exe'
 WINEPREFIX='/config/.wine'
 wine_executable="wine"
 metatrader_version="5.0.36"
@@ -58,12 +58,12 @@ else
 
     # Set Windows 10 mode in Wine and download and install MT5
     $wine_executable reg add "HKEY_CURRENT_USER\\Software\\Wine" /v Version /t REG_SZ /d "win10" /f
-    show_message "[3/7] Downloading MT5 installer..."
-    curl -o /config/.wine/drive_c/mt5setup.exe $mt5setup_url
-    show_message "[3/7] Installing MetaTrader 5..."
-    $wine_executable "/config/.wine/drive_c/mt5setup.exe" "/auto" &
+    show_message "[3/7] Downloading EXNESS MT5 installer..."
+    curl -o /config/.wine/drive_c/exness5setup.exe $mt5setup_url
+    show_message "[3/7] Installing EXNESS MT5..."
+    $wine_executable "/config/.wine/drive_c/exness5setup.exe" "/auto" &
     wait
-    rm -f /config/.wine/drive_c/mt5setup.exe
+    rm -f /config/.wine/drive_c/exness5setup.exe
 fi
 
 # Recheck if MetaTrader 5 is installed
