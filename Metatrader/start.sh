@@ -96,38 +96,14 @@ if ! is_wine_python_package_installed "MetaTrader5==$metatrader_version"; then
 fi
 # Install mt5linux library in Windows if not installed
 show_message "[6/7] Checking and installing mt5linux library in Windows if necessary"
-# if ! is_wine_python_package_installed "mt5linux"; then
-#     $wine_executable python -m pip install --no-cache-dir --break-system-packages mt5linux
-# fi
-
-# Install mt5linux from GitHub for Windows using curl
-show_message "[6/7] Installing mt5linux from GitHub in Windows"
 if ! is_wine_python_package_installed "mt5linux"; then
-    show_message "Downloading mt5linux from GitHub for Windows..."
-    curl -L https://github.com/lucas-campagna/mt5linux/archive/refs/heads/master.tar.gz -o /tmp/mt5linux.tar.gz && \
-    mkdir -p /tmp/mt5linux_win && \
-    tar -xzf /tmp/mt5linux.tar.gz -C /tmp/mt5linux_win --strip-components=1 && \
-    cd /tmp/mt5linux_win && \
-    touch requirements.txt && \
-    $wine_executable python -m pip install --no-cache-dir --break-system-packages . && \
-    $wine_executable python -m pip install --no-cache-dir --break-system-packages rpyc && \
-    rm -rf /tmp/mt5linux_win /tmp/mt5linux.tar.gz
+    $wine_executable python -m pip install --no-cache-dir --break-system-packages mt5linux
 fi
 
-# Install mt5linux from GitHub using curl for Linux
-show_message "[6/7] Installing mt5linux from GitHub in Linux"
+# Install mt5linux library in Linux if not installed
+show_message "[6/7] Checking and installing mt5linux library in Linux if necessary"
 if ! is_python_package_installed "mt5linux"; then
-    show_message "Downloading mt5linux from GitHub..."
-    curl -L https://github.com/lucas-campagna/mt5linux/archive/refs/heads/master.tar.gz -o /tmp/mt5linux.tar.gz && \
-    mkdir -p /tmp/mt5linux && \
-    tar -xzf /tmp/mt5linux.tar.gz -C /tmp/mt5linux --strip-components=1 && \
-    cd /tmp/mt5linux && \
-    touch requirements.txt && \
-    pip install --no-cache-dir --break-system-packages . && \
-    pip install --upgrade --no-cache-dir --break-system-packages rpyc && \
-    # Create the server directory for mt5linux
-    mkdir -p /tmp/mt5linux/server && \
-    rm -f /tmp/mt5linux.tar.gz
+    pip install --upgrade --no-cache-dir --break-system-packages mt5linux
 fi
 
 # Install pyxdg library in Linux if not installed
@@ -138,38 +114,14 @@ fi
 
 # Start the MT5 server on Linux
 show_message "[7/7] Starting the mt5linux server..."
-# Check if mt5linux is installed properly
-if python3 -c "import mt5linux" 2>/dev/null; then
-    # Create server directory if needed
-    SERVER_DIR="/tmp/mt5linux/server"
-    mkdir -p "$SERVER_DIR"
-    
-    # Start the server with proper arguments
-    cd /tmp
-    python3 -m mt5linux --host 0.0.0.0 --port $mt5server_port --wine $wine_executable --server-dir "$SERVER_DIR" &
-    
-    # Give the server some time to start
-    sleep 5
-    
-    # Check if the server is running
-    if ss -tuln | grep ":$mt5server_port" > /dev/null; then
-        show_message "[7/7] The mt5linux server is running on port $mt5server_port."
-    else
-        show_message "[7/7] Failed to start the mt5linux server on port $mt5server_port."
-        # Try to start with alternate syntax
-        python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable python.exe &
-        sleep 5
-        if ss -tuln | grep ":$mt5server_port" > /dev/null; then
-            show_message "[7/7] The mt5linux server is running on port $mt5server_port with alternate syntax."
-        else
-            show_message "[7/7] Failed to start the mt5linux server after multiple attempts."
-        fi
-    fi
-else
-    show_message "[7/7] mt5linux module not found. Cannot start server."
-fi
+python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable python.exe &
 
-# Clean up the mt5linux directory only if not being used
-if [ ! "$(ss -tuln | grep ":$mt5server_port")" ]; then
-    rm -rf /tmp/mt5linux
+# Give the server some time to start
+sleep 5
+
+# Check if the server is running
+if ss -tuln | grep ":$mt5server_port" > /dev/null; then
+    show_message "[7/7] The mt5linux server is running on port $mt5server_port."
+else
+    show_message "[7/7] Failed to start the mt5linux server on port $mt5server_port."
 fi
