@@ -125,8 +125,9 @@ if ! is_python_package_installed "mt5linux"; then
     touch requirements.txt && \
     pip install --no-cache-dir --break-system-packages . && \
     pip install --upgrade --no-cache-dir --break-system-packages rpyc && \
+    # Create the server directory for mt5linux
+    mkdir -p /tmp/mt5linux/server && \
     rm -f /tmp/mt5linux.tar.gz
-    # Don't remove the mt5linux directory yet as it might be needed for server startup
 fi
 
 # Install pyxdg library in Linux if not installed
@@ -137,21 +138,38 @@ fi
 
 # Start the MT5 server on Linux
 show_message "[7/7] Starting the mt5linux server..."
-# Make sure the server directory exists
-mkdir -p /tmp/mt5linux
-python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable python.exe &
-
-# Give the server some time to start
-sleep 5
-
-# Check if the server is running
-if ss -tuln | grep ":$mt5server_port" > /dev/null; then
-    show_message "[7/7] The mt5linux server is running on port $mt5server_port."
+# Check if mt5linux is installed properly
+if python3 -c "import mt5linux" 2>/dev/null; then
+    # Create server directory if needed
+    SERVER_DIR="/tmp/mt5linux/server"
+    mkdir -p "$SERVER_DIR"
+    
+    # Start the server with proper arguments
+    cd /tmp
+    python3 -m mt5linux --host 0.0.0.0 --port $mt5server_port --wine $wine_executable --server-dir "$SERVER_DIR" &
+    
+    # Give the server some time to start
+    sleep 5
+    
+    # Check if the server is running
+    if ss -tuln | grep ":$mt5server_port" > /dev/null; then
+        show_message "[7/7] The mt5linux server is running on port $mt5server_port."
+    else
+        show_message "[7/7] Failed to start the mt5linux server on port $mt5server_port."
+        # Try to start with alternate syntax
+        python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable python.exe &
+        sleep 5
+        if ss -tuln | grep ":$mt5server_port" > /dev/null; then
+            show_message "[7/7] The mt5linux server is running on port $mt5server_port with alternate syntax."
+        else
+            show_message "[7/7] Failed to start the mt5linux server after multiple attempts."
+        fi
+    fi
 else
-    show_message "[7/7] Failed to start the mt5linux server on port $mt5server_port."
+    show_message "[7/7] mt5linux module not found. Cannot start server."
 fi
 
-# Clean up the mt5linux directory if it exists
-if [ -d "/tmp/mt5linux" ]; then
+# Clean up the mt5linux directory only if not being used
+if [ ! "$(ss -tuln | grep ":$mt5server_port")" ]; then
     rm -rf /tmp/mt5linux
 fi
