@@ -14,7 +14,7 @@ mt5linux_zip_url="https://github.com/lucas-campagna/mt5linux/archive/refs/heads/
 
 # Function to display a graphical message
 show_message() {
-    echo $1
+    echo "$1"
 }
 
 # Function to check if a dependency is installed
@@ -51,9 +51,18 @@ install_package() {
     return 0
 }
 
-# Function to check if Git is installed in Wine
-is_git_installed_in_wine() {
-    $wine_executable "C:\\Program Files\\Git\\bin\\git.exe" --version &> /dev/null
+# Function to check if Python is properly installed in Wine
+check_wine_python() {
+    if [ -f "$WINEPREFIX/drive_c/Python39/python.exe" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to check if a Python package is installed
+is_python_package_installed() {
+    python3 -c "import importlib.util; exit(0 if importlib.util.find_spec('$1') else 1)" 2>/dev/null
     return $?
 }
 
@@ -104,18 +113,6 @@ if os.path.exists('/tmp/mt5linux-master'):
     return 0
 }
 
-# Function to check if a Python package is installed
-is_python_package_installed() {
-    python3 -c "import importlib.util; exit(0 if importlib.util.find_spec('$1') else 1)" 2>/dev/null
-    return $?
-}
-
-# Function to check if a Python package is installed in Wine
-is_wine_python_package_installed() {
-    $wine_executable python -c "import importlib.util; exit(0 if importlib.util.find_spec('$1') else 1)" 2>/dev/null
-    return $?
-}
-
 # Check for necessary dependencies
 check_dependency "curl" || install_package "curl"
 check_dependency "$wine_executable" || { echo "Wine must be installed manually."; exit 1; }
@@ -163,28 +160,16 @@ else
 fi
 
 # Install Python in Wine if not present
-if ! $wine_executable python --version 2>/dev/null; then
+if ! check_wine_python; then
     show_message "[5/7] Installing Python in Wine..."
     curl -L $python_url -o /tmp/python-installer.exe
-    $wine_executable /tmp/python-installer.exe /quiet InstallAllUsers=1 PrependPath=1
-    rm /tmp/python-installer.exe
-    show_message "[5/7] Python installed in Wine."
-else
-    show_message "[5/7] Python is already installed in Wine."
-fi
-
-# Install Git for Windows in Wine if not present
-if ! is_git_installed_in_wine; then
-    show_message "[5/7] Installing Git for Windows in Wine..."
-    # Download Git installer
-    curl -L $git_win_url -o /tmp/git-installer.exe
     
     # Disable Wine debug messages temporarily
     WINEDEBUG="-all"
     export WINEDEBUG
     
-    # Run installer silently
-    $wine_executable /tmp/git-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS
+    # Run the Python installer with a complete path and wait for it
+    $wine_executable /tmp/python-installer.exe /quiet InstallAllUsers=1 PrependPath=1 Include_test=0 Include_doc=0
     
     # Wait for installation to complete
     sleep 10
@@ -192,72 +177,77 @@ if ! is_git_installed_in_wine; then
     # Reset Wine debug messages
     unset WINEDEBUG
     
-    # Clean up
-    rm -f /tmp/git-installer.exe
+    # Remove installer
+    rm -f /tmp/python-installer.exe
     
-    # Add Git to the Windows PATH if needed
-    $wine_executable reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v PATH /t REG_EXPAND_SZ /d "%PATH%;C:\\Program Files\\Git\\cmd" /f
+    # Add Python to PATH in Wine
+    $wine_executable reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment" /v PATH /t REG_EXPAND_SZ /d "C:\\Python39;C:\\Python39\\Scripts;%PATH%" /f
     
-    show_message "[5/7] Git for Windows installed in Wine."
+    show_message "[5/7] Python installed in Wine."
+    
+    # Verify Python is working
+    if $wine_executable "C:\\Python39\\python.exe" --version; then
+        show_message "Python in Wine is working correctly."
+    else
+        show_message "WARNING: Python in Wine may not be working correctly."
+    fi
 else
-    show_message "[5/7] Git for Windows is already installed in Wine."
+    show_message "[5/7] Python is already installed in Wine."
 fi
 
-# Upgrade pip and install required packages
-show_message "[6/7] Installing Python libraries"
-$wine_executable python -m pip install --upgrade --no-cache-dir pip
+# Skip Windows Python package installations if Python isn't working in Wine
+if ! check_wine_python; then
+    show_message "[6/7] Skipping Windows Python package installations due to missing Python."
+else
+    # Upgrade pip in Wine
+    show_message "[6/7] Installing Python libraries in Wine..."
+    $wine_executable "C:\\Python39\\python.exe" -m pip install --upgrade pip
 
-# Install MetaTrader5 library in Windows if not installed
-show_message "[6/7] Installing MetaTrader5 library in Windows"
-if ! is_wine_python_package_installed "MetaTrader5"; then
-    $wine_executable python -m pip install --no-cache-dir --break-system-packages MetaTrader5==$metatrader_version
-fi
-
-# Install mt5linux library in Windows if not installed
-show_message "[6/7] Checking and installing mt5linux library in Windows if necessary"
-if ! is_wine_python_package_installed "mt5linux"; then
-    # Download mt5linux to Windows via Python script
+    # Install MetaTrader5 library in Windows if not installed
+    show_message "[6/7] Installing MetaTrader5 library in Windows..."
+    $wine_executable "C:\\Python39\\python.exe" -m pip install MetaTrader5==$metatrader_version
+    
+    # Create a simple Python script to install mt5linux in Wine
     cat > /tmp/install_mt5linux.py << EOF
-import os
 import urllib.request
 import zipfile
-import subprocess
+import os
 import shutil
 
-# Create temp directory
-os.makedirs("C:\\\\mt5linux", exist_ok=True)
+# Download mt5linux
+print("Downloading mt5linux...")
+urllib.request.urlretrieve("$mt5linux_zip_url", "C:\\mt5linux.zip")
 
-# Download zip file
-zip_url = "$mt5linux_zip_url"
-zip_file = "C:\\\\mt5linux.zip"
-urllib.request.urlretrieve(zip_url, zip_file)
+# Extract zip
+print("Extracting mt5linux...")
+with zipfile.ZipFile("C:\\mt5linux.zip") as zip_ref:
+    zip_ref.extractall("C:\\")
 
-# Extract zip file
-with zipfile.ZipFile(zip_file, "r") as zip_ref:
-    zip_ref.extractall("C:\\\\")
-
-# Create empty requirements.txt
-with open("C:\\\\mt5linux-master\\\\requirements.txt", "w") as f:
+# Create requirements.txt
+print("Creating requirements.txt...")
+with open("C:\\mt5linux-master\\requirements.txt", "w") as f:
     pass
 
-# Install the package
-os.chdir("C:\\\\mt5linux-master")
-subprocess.call(["pip", "install", "--break-system-packages", "."])
-subprocess.call(["pip", "install", "--break-system-packages", "rpyc"])
+# Change to extracted directory and install
+os.chdir("C:\\mt5linux-master")
+print("Installing mt5linux...")
+os.system("pip install .")
+os.system("pip install rpyc")
 
 # Clean up
-os.chdir("C:\\\\")
-os.remove(zip_file)
-shutil.rmtree("C:\\\\mt5linux-master")
+os.remove("C:\\mt5linux.zip")
+shutil.rmtree("C:\\mt5linux-master")
+print("Done!")
 EOF
-    
+
     # Run the Python script in Wine
-    $wine_executable python /tmp/install_mt5linux.py
+    show_message "[6/7] Installing mt5linux in Windows..."
+    $wine_executable "C:\\Python39\\python.exe" /tmp/install_mt5linux.py
     rm -f /tmp/install_mt5linux.py
 fi
 
 # Install mt5linux in Linux if not installed
-show_message "[6/7] Installing mt5linux in Linux if necessary"
+show_message "[6/7] Installing mt5linux in Linux..."
 if ! is_python_package_installed "mt5linux"; then
     # Download and extract mt5linux
     download_mt5linux_zip
@@ -275,15 +265,20 @@ if ! is_python_package_installed "mt5linux"; then
 fi
 
 # Install pyxdg library in Linux if not installed
-show_message "[6/7] Checking and installing pyxdg library in Linux if necessary"
+show_message "[6/7] Installing pyxdg in Linux..."
 if ! is_python_package_installed "pyxdg"; then
-    pip install --user --upgrade --break-system-packages pyxdg
+    python3 -m pip install --user --upgrade --break-system-packages pyxdg
 fi
 
 # Start the MT5 server on Linux
 show_message "[7/7] Starting the mt5linux server..."
 export PYTHONPATH=$HOME/.local/lib/python3*/site-packages:$PYTHONPATH
-python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable python.exe &
+
+# Create server directory that mt5linux expects
+mkdir -p /tmp/mt5linux
+
+# Start the mt5linux server
+python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable "C:\\Python39\\python.exe" &
 
 # Give the server some time to start
 sleep 5
@@ -296,6 +291,16 @@ else
     # Show more information about possible failure
     show_message "Checking if mt5linux module is installed correctly..."
     python3 -c "import mt5linux; print('mt5linux is installed at:', mt5linux.__file__)" || echo "mt5linux is not properly installed"
+    
+    # Try running with specific paths to help diagnose
+    show_message "Trying alternative server start method..."
+    python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w "$wine_executable" "C:\\Python39\\python.exe" --verbose &
+    
+    # Wait a bit and check again
+    sleep 5
+    if ss -tuln | grep ":$mt5server_port" > /dev/null; then
+        show_message "[7/7] The mt5linux server is now running on port $mt5server_port."
+    fi
 fi
 
 # Keep the script running to prevent container exit
