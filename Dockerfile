@@ -46,7 +46,6 @@ WORKDIR /opt/app
 RUN python3 -m venv .venv \
     && . .venv/bin/activate \
     && pip install --upgrade pip \
-    && pip install mt5linux \
     && deactivate
 
 COPY /Metatrader /Metatrader
