@@ -9,6 +9,7 @@ mt5server_port="8001"
 mono_url="https://dl.winehq.org/wine/wine-mono/8.0.0/wine-mono-8.0.0-x86.msi"
 python_url="https://www.python.org/ftp/python/3.9.0/python-3.9.0.exe"
 mt5setup_url="https://download.mql5.com/cdn/web/exness.technologies.ltd/mt5/exness5setup.exe"
+git_win_url="https://github.com/git-for-windows/git/releases/download/v2.40.1.windows.1/Git-2.40.1-32-bit.exe"
 
 # Function to display a graphical message
 show_message() {
@@ -19,8 +20,40 @@ show_message() {
 check_dependency() {
     if ! command -v $1 &> /dev/null; then
         echo "$1 is not installed. Please install it to continue."
-        exit 1
+        return 1
     fi
+    return 0
+}
+
+# Function to install a package
+install_package() {
+    package=$1
+    if command -v apt-get &> /dev/null; then
+        show_message "Installing $package using apt-get..."
+        apt-get update && apt-get install -y $package
+    elif command -v apt &> /dev/null; then
+        show_message "Installing $package using apt..."
+        apt update && apt install -y $package
+    elif command -v yum &> /dev/null; then
+        show_message "Installing $package using yum..."
+        yum install -y $package
+    elif command -v dnf &> /dev/null; then
+        show_message "Installing $package using dnf..."
+        dnf install -y $package
+    elif command -v apk &> /dev/null; then
+        show_message "Installing $package using apk..."
+        apk add --no-cache $package
+    else
+        echo "Could not install $package. No supported package manager found."
+        return 1
+    fi
+    return 0
+}
+
+# Function to check if Git is installed in Wine
+is_git_installed_in_wine() {
+    $wine_executable git --version &> /dev/null
+    return $?
 }
 
 # Function to check if a Python package is installed
@@ -36,9 +69,9 @@ is_wine_python_package_installed() {
 }
 
 # Check for necessary dependencies
-check_dependency "curl"
-check_dependency "$wine_executable"
-check_dependency "git"
+check_dependency "curl" || install_package "curl"
+check_dependency "$wine_executable" || { echo "Wine must be installed manually."; exit 1; }
+check_dependency "git" || install_package "git"
 
 # Try to fix permission issues
 show_message "Fixing permissions..."
@@ -93,6 +126,17 @@ else
     show_message "[5/7] Python is already installed in Wine."
 fi
 
+# Install Git for Windows in Wine if not present
+if ! is_git_installed_in_wine; then
+    show_message "[5/7] Installing Git for Windows in Wine..."
+    curl -L $git_win_url -o /tmp/git-installer.exe
+    $wine_executable /tmp/git-installer.exe /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"
+    rm /tmp/git-installer.exe
+    show_message "[5/7] Git for Windows installed in Wine."
+else
+    show_message "[5/7] Git for Windows is already installed in Wine."
+fi
+
 # Upgrade pip and install required packages
 show_message "[6/7] Installing Python libraries"
 $wine_executable python -m pip install --upgrade --no-cache-dir pip
@@ -104,40 +148,12 @@ fi
 # Install mt5linux library in Windows if not installed
 show_message "[6/7] Checking and installing mt5linux library in Windows if necessary"
 if ! is_wine_python_package_installed "mt5linux"; then
-    # Create a temporary script to install mt5linux from GitHub in Windows
-    cat > /tmp/install_mt5linux.py << EOF
-import os
-import shutil
-import subprocess
-import tempfile
-
-# Create temporary directory
-temp_dir = tempfile.mkdtemp()
-os.chdir(temp_dir)
-
-# Clone repo
-subprocess.call(['git', 'clone', 'https://github.com/lucas-campagna/mt5linux.git', temp_dir])
-
-# Create empty requirements.txt
-with open('requirements.txt', 'w') as f:
-    pass
-
-# Install the package and rpyc
-subprocess.call(['pip', 'install', '--break-system-packages', '.'])
-subprocess.call(['pip', 'install', '--break-system-packages', 'rpyc'])
-
-# Clean up
-os.chdir('/')
-shutil.rmtree(temp_dir)
-EOF
-    
-    # Run the script in Wine Python
-    $wine_executable python /tmp/install_mt5linux.py
-    rm /tmp/install_mt5linux.py
+    # Use Windows git to clone and install mt5linux
+    $wine_executable cmd /c "git clone https://github.com/lucas-campagna/mt5linux.git C:\\mt5linux && cd C:\\mt5linux && type nul > requirements.txt && pip install --break-system-packages . && pip install --break-system-packages rpyc && rmdir /s /q C:\\mt5linux"
 fi
 
 # Install mt5linux from GitHub in Linux if not installed
-show_message "[6/7] Installing mt5linux from GitHub in Linux"
+show_message "[6/7] Installing mt5linux from GitHub in Linux if necessary"
 if ! is_python_package_installed "mt5linux"; then
     git clone https://github.com/lucas-campagna/mt5linux.git /tmp/mt5linux
     cd /tmp/mt5linux
