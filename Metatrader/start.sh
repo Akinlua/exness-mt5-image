@@ -205,7 +205,7 @@ else
 
     # Install MetaTrader5 library in Windows if not installed
     show_message "[6/7] Installing MetaTrader5 library in Windows..."
-    $wine_executable "C:\\Python39\\python.exe" -m pip install MetaTrader5==$metatrader_version
+    $wine_executable "C:\\Python39\\python.exe" -m pip install --break-system-packages MetaTrader5==$metatrader_version
     
     # Create a simple Python script to install mt5linux in Wine
     cat > /tmp/install_mt5linux.py << EOF
@@ -231,8 +231,8 @@ with open("C:\\mt5linux-master\\requirements.txt", "w") as f:
 # Change to extracted directory and install
 os.chdir("C:\\mt5linux-master")
 print("Installing mt5linux...")
-os.system("pip install .")
-os.system("pip install rpyc")
+os.system("pip install --break-system-packages .")
+os.system("pip install --break-system-packages rpyc")
 
 # Clean up
 os.remove("C:\\mt5linux.zip")
