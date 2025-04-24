@@ -277,8 +277,12 @@ export PYTHONPATH=$HOME/.local/lib/python3*/site-packages:$PYTHONPATH
 # Create server directory that mt5linux expects
 mkdir -p /tmp/mt5linux
 
-# Start the mt5linux server
-python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable "C:\\Python39\\python.exe" &
+# Make sure paths are correct and properly quoted
+python3_path=$(which python3)
+wine_path=$(which $wine_executable)
+
+# Start the mt5linux server with correct syntax
+$python3_path -m mt5linux --host 0.0.0.0 -p $mt5server_port -w "$wine_path" "C:\\Python39\\python.exe" &
 
 # Give the server some time to start
 sleep 5
@@ -292,14 +296,24 @@ else
     show_message "Checking if mt5linux module is installed correctly..."
     python3 -c "import mt5linux; print('mt5linux is installed at:', mt5linux.__file__)" || echo "mt5linux is not properly installed"
     
-    # Try running with specific paths to help diagnose
+    # Try running with alternative command format
     show_message "Trying alternative server start method..."
-    python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w "$wine_executable" "C:\\Python39\\python.exe" --verbose &
+    $python3_path -m mt5linux --host 0.0.0.0 -p $mt5server_port -w "$wine_path" "C:\\\Python39\\\python.exe" &
     
     # Wait a bit and check again
     sleep 5
     if ss -tuln | grep ":$mt5server_port" > /dev/null; then
         show_message "[7/7] The mt5linux server is now running on port $mt5server_port."
+    else
+        # One more attempt with simplified syntax
+        show_message "Trying final server start method..."
+        $python3_path -m mt5linux -p $mt5server_port -w "$wine_path" "C:\\Python39\\python.exe" &
+        sleep 5
+        if ss -tuln | grep ":$mt5server_port" > /dev/null; then
+            show_message "[7/7] The mt5linux server is finally running on port $mt5server_port."
+        else
+            show_message "All attempts to start mt5linux server have failed. Check the logs for details."
+        fi
     fi
 fi
 
