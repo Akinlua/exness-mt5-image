@@ -133,6 +133,8 @@ fi
 show_message "[7/7] Starting the mt5linux server..."
 # python3 -m mt5linux --host 0.0.0.0 -p $mt5server_port -w $wine_executable python.exe &
 
+mkdir /tmp/my_mt5_server
+
 # Generate the server file
 python3 -m mt5linux "python.exe" --host "0.0.0.0" -p $mt5server_port -w "/usr/bin/wine" -s "/tmp/my_mt5_server"
 
