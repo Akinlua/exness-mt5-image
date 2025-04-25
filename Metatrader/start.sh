@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Configuration variables
-mt5file='/config/.wine/drive_c/Program Files/MetaTrader 5 EXNESS/terminal64.exe'
+mt5file='/config/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe'
 WINEPREFIX='/config/.wine'
 wine_executable="wine"
 metatrader_version="5.0.36"
 mt5server_port="8001"
 mono_url="https://dl.winehq.org/wine/wine-mono/8.0.0/wine-mono-8.0.0-x86.msi"
 python_url="https://www.python.org/ftp/python/3.9.0/python-3.9.0.exe"
-mt5setup_url="https://download.mql5.com/cdn/web/exness.technologies.ltd/mt5/exness5setup.exe"
+mt5setup_url="https://download.mql5.com/cdn/web/metaquotes.software.corp/mt5/mt5setup.exe"
 
 # Function to display a graphical message
 show_message() {
@@ -58,12 +58,12 @@ else
 
     # Set Windows 10 mode in Wine and download and install MT5
     $wine_executable reg add "HKEY_CURRENT_USER\\Software\\Wine" /v Version /t REG_SZ /d "win10" /f
-    show_message "[3/7] Downloading EXNESS MT5 installer..."
-    curl -o /config/.wine/drive_c/exness5setup.exe $mt5setup_url
-    show_message "[3/7] Installing EXNESS MT5..."
-    $wine_executable "/config/.wine/drive_c/exness5setup.exe" "/auto" &
+    show_message "[3/7] Downloading MT5 installer..."
+    curl -o /config/.wine/drive_c/mt5setup.exe $mt5setup_url
+    show_message "[3/7] Installing MT5..."
+    $wine_executable "/config/.wine/drive_c/mt5setup.exe" "/auto" &
     wait
-    rm -f /config/.wine/drive_c/exness5setup.exe
+    rm -f /config/.wine/drive_c/mt5setup.exe
 fi
 
 # Recheck if MetaTrader 5 is installed
